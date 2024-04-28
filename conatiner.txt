@@ -1,0 +1,32 @@
+apt update
+apt install wget -y
+wget https://go.dev/dl/go1.21.1.linux-amd64.tar.gz
+tar -xvf go1.21.1.linux-amd64.tar.gz -C /usr/local/
+export PATH=$PATH:/usr/local/go/bin:/root/go/bin
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+apt install cmake libgrpc-dev make protobuf-compiler-grpc python3-grpc-tools -y
+apt-get install git -y
+git clone https://github.com/go-skynet/LocalAI
+cd LocalAI
+make BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS=backend-assets/grpc/llama-cpp build
+cp model_name models/.
+./local-ai --models-path=./models/ --debug=true
+
+V2---------
+apt update
+apt-get install git -y
+git clone https://github.com/go-skynet/LocalAI
+cd LocalAI
+apt install cmake libgrpc-dev make protobuf-compiler-grpc python3-grpc-tools -y
+export PATH=$PATH:/usr/local/go/bin:/root/go/bin
+make BUILD_GRPC_FOR_BACKEND_LLAMA=true prepare
+export GOPATH=/root/go/
+export PATH=$PATH:$GOPATH/bin
+make BUILD_GRPC_FOR_BACKEND_LLAMA=true build
+
+-----
+
+wget https://huggingface.co/RichardErkhov/openai-community_-_gpt2-medium-gguf/blob/main/gpt2-medium.Q6_K.gguf -O models/test.gguf
+./local-ai --models-path=./models/ --debug=true
+
