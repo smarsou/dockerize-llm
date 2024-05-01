@@ -12,6 +12,7 @@ from huggingface_hub import login
 from huggingface_hub import get_hf_file_metadata, hf_hub_url, repo_info, hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from typing import Optional
+from huggingface_hub import snapshot_download
 
 #----------------------
 # CONFIG
@@ -107,9 +108,15 @@ class HuggingFaceInterface():
         """
         Download a file from a given HuggingFace repository.
         """
-        hf_hub_download(repo_id=repo_id, filename=filename, local_dir=output_dir,local_dir_use_symlinks=False, revision="main")
+        hf_hub_download(repo_id=repo_id, filename=filename, local_dir=output_dir, local_dir_use_symlinks=False, revision="main")
 
-    def search_model_and_download(self, output_dir):
+    def download_repo(self,repo_id, output_dir="model"):
+        """
+        Download a full repo from a given HuggingFace repository.
+        """
+        snapshot_download(repo_id=repo_id,local_dir="output_dir",local_dir_use_symlinks=False, revision="main")
+
+    def search_model_and_download(self, output_dir="."):
         """
         Guide the user into the process flow of searching for a model in the HF Hub, and download it.
         """
@@ -131,7 +138,7 @@ class HuggingFaceInterface():
                 print("FAILED : The repository you are trying to access does not exist or you do not have permission to view it. Please check the repository ID and try again. Note that you may need to log in to access the repository.")
         print("Here are the GGUF files in this repository:")
         self.list_gguf_files_in_repo(repo_id)
-        
+
         while True:
             filename = input("Enter the filename of the model you want to download: ")
             if self.file_exists(repo_id,filename):
@@ -140,9 +147,10 @@ class HuggingFaceInterface():
                 print("FAILED : The file you are trying to download does not exist or you do not have permission to acces the repository. Please check all the IDs and try again. Note that you may need to log in to access the repository.")
 
         print("Initiating download process...")
-        self.download_file(repo_id, filename, output_dir)
+        self.download_file(repo_id, filename, output_dir=".")
 
-        return output_dir + "/" + filename, filename
+        return filename
+
 
 class DockerizedLLMServingSystem:
     def __init__(self, model_path, model_filename, docker_image_name, docker_image_tag,
@@ -157,69 +165,93 @@ class DockerizedLLMServingSystem:
         self.compile_backends = compile_backends
         self.kwargs = kwargs
 
-    def build_image(self):
+    def format_dockerfile(self):
         dockerfile = f"""
+# Use an official Ubuntu as a parent image
 FROM debian:bookworm
 
-# Update package lists and install wget
-RUN apt update && apt install -y wget
+# Update apt package index and install necessary packages
+RUN apt-get update && apt-get install -y \
+    git \
+    make \
+    build-essential \
+    ccache \
+    python3 \
+    python3-pip
 
-# Download and extract Go
-RUN wget {GO_URL} && \\
-    tar -C /usr/local -xzf {GO_URL}
+# Change working directory to /root/
+WORKDIR /root/
 
-# Add Go binaries to the PATH
-ENV PATH=$PATH:/usr/local/go/bin:/root/go/bin
+# Clone the llama.cpp repository
+RUN git clone https://github.com/ggerganov/llama.cpp
 
-# Install required dependencies
-RUN apt install -y cmake libgrpc-dev make protobuf-compiler-grpc python3-grpc-tools git
+# Change working directory to /root/llama.cpp
+WORKDIR /root/llama.cpp
 
-# Install protobuf and grpc tools for Go
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \\
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+# Install Python requirements
+RUN pip3 install -r requirements.txt --break-system-packages
 
-# Clone LocalAI repository
-RUN git clone https://github.com/go-skynet/LocalAI && \\
-    cd LocalAI && \\
-    make BUILD_GRPC_FOR_BACKEND_LLAMA=ON GRPC_BACKENDS=backend-assets/grpc/llama-cpp {"BUILD_TYPE="+self.build_type if self.build_type!=None else ""} build
+# Build llama.cpp with debug flag
+RUN make LLAMA_DEBUG=1
 
-# Copy model_name to models directory
-COPY {self.model_path} LocalAI/models/
+# Copy the GGUF model from the host into the container
+COPY {self.model_filename} /root/llama.cpp/
 
-# Set working directory
-WORKDIR /LocalAI
+# Install llama-cpp-python[server]
+RUN pip3 install 'llama-cpp-python[server]' --break-system-packages
 
-# Run LocalAI and load the model
-CMD ["sh", "-c", "./local-ai --models-path=./models/ --debug=true && \\
-    curl http://localhost:8080/v1/chat/completions -H 'Content-Type: application/json' -d '{{\"model\": \"test.gguf\", \"messages\": [{{\"role\": \"user\", \"content\": \"Are you loaded ?\"}}], \"temperature\": 0.9}}'"]
+# Set environment variables
+ENV MODELS=./{self.model_filename}
+ENV HOST=0.0.0.0
+ENV PORT=2600
+
+# Expose port 2600
+EXPOSE 2600
+
+# Start llama_cpp server
+CMD ["python3", "-m", "llama_cpp.server"]
 """
-        if self.preload_model:
-            dockerfile += f"""
-# Execute curl command
-CMD ["sh", "-c", "curl http://localhost:8080/v1/chat/completions -H 'Content-Type: application/json' -d '{{\"model\": \"{self.model_filename}\", \"messages\": [{{\"role\": \"user\", \"content\": \"Are you loaded ?\"}}], \"temperature\": 0.9}}'"]
-"""
 
-        # Create a Docker client
-        client = docker.from_env()
+        return dockerfile
 
-        try:
-            # Build the Docker image from the Dockerfile string
-            image, build_logs = client.images.build(fileobj=io.BytesIO(dockerfile.encode('utf-8')), rm=True, tag=f"{self.docker_image_name}:{self.docker_image_tag}")
-            # Check if the image is successfully built
-            if 'stream' in build_logs:
-                print("Build logs:")
-                for log in build_logs['stream'].split('\n'):
-                    print(log)
-                    
-            # Check if any tags are associated with the image
-            if image.tags:
-                print(f"Successfully built image: {image.tags[0]}")
-            else:
-                print("No tags associated with the image.")
-        except docker.errors.BuildError as e:
-            print(f"Build failed: {e}")
-        except docker.errors.APIError as e:
-            print(f"API error: {e}")
+
+
+    def build_image(self):
+
+        import subprocess
+
+        with open('Dockerfile', 'w') as f:
+            f.write(self.format_dockerfile())
+
+        subprocess.run(["docker","build","--progress=plain",'.'])
+        
+        subprocess.run(['rm', 'Dockerfile'])
+
+        # # Get a dockerfile as a string formatted with the good data
+        # dockerfile = self.format_dockerfile()
+
+        # # Create a Docker client
+        # client = docker.from_env()
+
+        # try:
+        #     # Build the Docker image from the Dockerfile string
+        #     image, build_logs = client.images.build(fileobj=io.BytesIO(dockerfile.encode('utf-8')), rm=True, tag=f"{self.docker_image_name}:{self.docker_image_tag}",progress="plain")
+            
+        #     # Check if the image is successfully built
+        #     if 'stream' in build_logs:
+        #         print("Build logs:")
+        #         for log in build_logs['stream'].split('\n'):
+        #             print(log)
+
+        #     # Check if any tags are associated with the image
+        #     if image.tags:
+        #         print(f"Successfully built image: {image.tags[0]}")
+        #     else:
+        #         print("No tags associated with the image.")
+        # except docker.errors.BuildError as e:
+        #     print(f"Build failed: {e}")
+        # except docker.errors.APIError as e:
+        #     print(f"API error: {e}")
 
 #----------------------
 # MAIN
@@ -227,18 +259,13 @@ CMD ["sh", "-c", "curl http://localhost:8080/v1/chat/completions -H 'Content-Typ
 
 if __name__ == "__main__":
 
-    docker_image_name = "lai"
+    docker_image_name = "test"
     docker_image_tag = "tag"
-    preload_model = True
-    # build_type = "cublas"
-    # compile_backends = ["backend1", "backend2"]
 
-    hf = HuggingFaceInterface(authenticate=False)
+    # hf = HuggingFaceInterface(authenticate=False)
 
-    model_path, model_filename = hf.search_model_and_download(output_dir=".")
-
+    # filename = hf.search_model_and_download()
+    filename = "gpt2.Q2_K.gguf"
     # Create instance of DockerizedLLMServingSystem
-    system = DockerizedLLMServingSystem(model_path, model_filename, docker_image_name, docker_image_tag,
-                                        preload_model)
-
+    system = DockerizedLLMServingSystem(filename, filename, docker_image_name, docker_image_tag)
     system.build_image()
