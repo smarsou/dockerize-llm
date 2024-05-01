@@ -1,1 +1,2 @@
 docker
+huggingface_hub

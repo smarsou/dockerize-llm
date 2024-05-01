@@ -1,6 +1,18 @@
 apt update
-apt install git make build-essential -y
-apt install -y ccache
+apt install git make build-essential ccache -y
+
+apt install python3
+apt install python3-pip
+
 cd /root/
 git clone https://github.com/ggerganov/llama.cpp
+mv model_filename llama.cpp/.
 cd llama.cpp
+pip install -r requirements.txt --break-system-packages
+make LLAMA_DEBUG=1
+
+pip install 'llama-cpp-python[server]' --break-system-packages
+
+export MODELS=./models/gpt2.gguf HOST=0.0.0.0 PORT=2600
+
+python3 -m llama_cpp.server

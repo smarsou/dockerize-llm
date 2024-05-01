@@ -164,7 +164,7 @@ Keyword arguments:
 build_type -- parameter used by llama.cpp for when building the repository,possible values : [None, "openblas", (soon: "clblast", "cuda")]
 """
 
-    def __init__(self, model_filename, docker_image_name, docker_image_tag,
+    def __init__(self, model_path, model_filename, docker_image_name, docker_image_tag,
                  preload_model=False, build_type=None, compile_backends=None, **kwargs):
         #self.model_path = model_path
         self.model_filename = model_filename
@@ -189,7 +189,7 @@ build_type -- parameter used by llama.cpp for when building the repository,possi
         """Format the dockerfile using the variables of the class.
         """
         
-        return f"""
+        dockerfile = f"""
 # Use an official Ubuntu as a parent image
 FROM debian:bookworm
 
@@ -224,6 +224,7 @@ COPY {self.model_filename} /root/llama.cpp/
 RUN pip install 'llama-cpp-python[server]' --break-system-packages
 
 # Set environment variables
+ENV MODELS=./{self.model_filename}
 ENV HOST=0.0.0.0
 ENV PORT=2600
 
@@ -231,8 +232,10 @@ ENV PORT=2600
 EXPOSE 2600
 
 # Start llama_cpp server
-CMD ["python3", "-m", "llama_cpp.server", "--model={self.model_filename}"]
+CMD ["python3", "-m", "llama_cpp.server"]
 """
+
+        return dockerfile
 
 
     def build_image(self):
@@ -243,7 +246,35 @@ CMD ["python3", "-m", "llama_cpp.server", "--model={self.model_filename}"]
         with open('Dockerfile', 'w') as f:
             f.write(self.format_dockerfile())
 
-        subprocess.run(["docker","buildx", "build","--progress=plain",f"--tag={self.docker_image_name}:{self.docker_image_tag}",'.'])
+        subprocess.run(["docker","build","--progress=plain",'.'])
+        
+        subprocess.run(['rm', 'Dockerfile'])
+
+        # # Get a dockerfile as a string formatted with the good data
+        # dockerfile = self.format_dockerfile()
+
+        # # Create a Docker client
+        # client = docker.from_env()
+
+        # try:
+        #     # Build the Docker image from the Dockerfile string
+        #     image, build_logs = client.images.build(fileobj=io.BytesIO(dockerfile.encode('utf-8')), rm=True, tag=f"{self.docker_image_name}:{self.docker_image_tag}",progress="plain")
+            
+        #     # Check if the image is successfully built
+        #     if 'stream' in build_logs:
+        #         print("Build logs:")
+        #         for log in build_logs['stream'].split('\n'):
+        #             print(log)
+
+        #     # Check if any tags are associated with the image
+        #     if image.tags:
+        #         print(f"Successfully built image: {image.tags[0]}")
+        #     else:
+        #         print("No tags associated with the image.")
+        # except docker.errors.BuildError as e:
+        #     print(f"Build failed: {e}")
+        # except docker.errors.APIError as e:
+        #     print(f"API error: {e}")
 
 #----------------------
 # MAIN
@@ -251,15 +282,15 @@ CMD ["python3", "-m", "llama_cpp.server", "--model={self.model_filename}"]
 
 if __name__ == "__main__":
 
-    # Arguments
-    docker_image_name = "imagetest"
-    docker_image_tag = "tagtest"
-    build_type = None # Check the summary of the class DockerizedLLMServingSystem for more details about the possible values.
+    docker_image_name = "test"
+    docker_image_tag = "tag"
+    build_type = None
 
-    # Download a gguf model
-    hf = HuggingFaceInterface(authenticate=False)
-    filename = hf.search_model_and_download()
+    # hf = HuggingFaceInterface(authenticate=False)
 
-    # Build the image
-    system = DockerizedLLMServingSystem(filename, docker_image_name, docker_image_tag, build_type)
+    # filename = hf.search_model_and_download()
+    filename = "gpt2.gguf"
+    # Create instance of DockerizedLLMServingSystem
+    system = DockerizedLLMServingSystem(filename, filename, docker_image_name, docker_image_tag, build_type)
+    
     system.build_image()
