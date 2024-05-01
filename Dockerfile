@@ -21,7 +21,7 @@ RUN pip install -r requirements.txt --break-system-packages
 RUN make LLAMA_DEBUG=1 
 
 # Copy the GGUF model from the host into the container
-COPY gpt2.Q6_K.gguf /root/llama.cpp/
+COPY gpt2-small-dutch.Q4_K.gguf /root/llama.cpp/
 
 # Install llama-cpp-python[server]
 RUN pip install 'llama-cpp-python[server]' --break-system-packages
@@ -34,4 +34,4 @@ ENV PORT=2600
 EXPOSE 2600
 
 # Start llama_cpp server
-CMD ["python3", "-m", "llama_cpp.server", "--model=gpt2.Q6_K.gguf"]
+CMD ["python3", "-m", "llama_cpp.server", "--model=gpt2-small-dutch.Q4_K.gguf"]

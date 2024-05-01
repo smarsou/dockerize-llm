@@ -1,5 +1,19 @@
 """
-TODO : Quick Introduction
+This python module meet the following requirements :
+-> Check HuggingFace for gguf models and download them.
+-> Serve the model with llama.cpp 
+-> Serve the model with an OpenAI endpoint API.
+-> Dockerize the whole 
+
+# VERSION
+
+VERSION : 1.0
+
+# CONFIG
+
+BACKEND : llama.cpp from source
+API : Built-in llama.cpp API (python module "llama-cpp-python[server]")
+
 """
 
 
@@ -7,7 +21,7 @@ TODO : Quick Introduction
 # Dependencies
 #----------------------
 
-import logging, io, re, requests, docker
+import logging, re, requests
 from huggingface_hub import login
 from huggingface_hub import get_hf_file_metadata, hf_hub_url, repo_info, hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
@@ -250,6 +264,22 @@ CMD ["python3", "-m", "llama_cpp.server", "--model={self.model_filename}"]
 #----------------------
 
 if __name__ == "__main__":
+    """For testing, here is a scenario in which the user is asked to choose a GGUF model from the HuggingFace Hub, then it creates the docker image to serve the model chosen.
+    When the image is built succesfully, you can run a first container with the following command :
+    
+        docker run -dit -p 2600:2600 <docker_image_name>:<docker_image_tag>
+
+    And then your model is served into this container and is accessible through a OpenAI compatible API.
+
+    Example for testing :
+
+        1. Retrieve the id of the model with the following command:
+        curl http://localhost:2600/v1/models -H 'Content-Type: application/json'
+
+        2. Send a chat completion request to the served model using the following command:
+        curl http://localhost:2600/v1/chat/completions -H 'Content-Type: application/json' -d '{"model": "<model_id_found_with_the_previous_command>", "messages": [{"role": "user", "content": "Are you loaded ?"}], "temperature": 0.9, "max_tokens":25}'
+
+    """
 
     # Arguments
     docker_image_name = "imagetest"
