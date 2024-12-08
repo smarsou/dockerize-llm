@@ -45,9 +45,9 @@ def get_parser():
     parser = argparse.ArgumentParser(
                     prog='DockerizeLLM',
                     description='It suggest you to choose an LLM from the HunggingFace Hub and then build an image to serve it using llama.cpp')
-    parser.add_argument('image_name', type=str, required=True, help="name to use for the docker image which will be built.")
-    parser.add_argument('image_tag', type=str, required=True, help="tag to use for the docker image which will be built.")
-    parser.add_argument('build_type', type=str, default=None, help="""parameter used by llama.cpp for when building the repository, possible values : [None, "openblas", (soon: "clblast", "cuda")]""")
+    parser.add_argument('--image_name', type=str, required=True, help="name to use for the docker image which will be built.")
+    parser.add_argument('--image_tag', type=str, required=True, help="tag to use for the docker image which will be built.")
+    parser.add_argument('--build_type', type=str, default=None, help="""parameter used by llama.cpp for when building the repository, possible values : [None, "openblas", (soon: "clblast", "cuda")]""")
     return parser
 
 #----------------------
