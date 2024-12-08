@@ -50,6 +50,11 @@ The script accepts the following arguments:
 2. Install required Python packages:
    ```bash
    pip install -r requirements.txt
+3. python3 dockerize_llm.py <image_name> <image_tag> <build_type>
+4. Follow the interactive steps to:
+   - Search for a model.
+   - Select and download the model file.
+5. The Docker image will be built automatically.
 
 ### Run the built image
 
