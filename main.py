@@ -22,7 +22,7 @@ API : Built-in llama.cpp API (python module "llama-cpp-python[server]")
 # Dependencies
 #----------------------
 
-import logging, re, requests
+import logging, re, requests, argparse
 from huggingface_hub import login
 from huggingface_hub import get_hf_file_metadata, hf_hub_url, repo_info, hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
@@ -36,6 +36,19 @@ from huggingface_hub import snapshot_download
 logging.basicConfig(level=logging.INFO)
 
 GO_URL = "https://go.dev/dl/go1.21.1.linux-amd64.tar.gz"
+
+#----------------------
+# FUNCTIONS
+#----------------------
+
+def get_parser():
+    parser = argparse.ArgumentParser(
+                    prog='DockerizeLLM',
+                    description='It suggest you to choose an LLM from the HunggingFace Hub and then build an image to serve it using llama.cpp')
+    parser.add_argument('image_name', type=str, required=True, help="name to use for the docker image which will be built.")
+    parser.add_argument('image_tag', type=str, required=True, help="tag to use for the docker image which will be built.")
+    parser.add_argument('build_type', type=str, default=None, help="""parameter used by llama.cpp for when building the repository, possible values : [None, "openblas", (soon: "clblast", "cuda")]""")
+    return parser
 
 #----------------------
 # CLASSES
@@ -267,9 +280,11 @@ CMD ["python3", "-m", "llama_cpp.server", "--model={self.model_filename}"]
 if __name__ == "__main__":
 
     # Arguments
-    docker_image_name = "imagetest"
-    docker_image_tag = "tagtest"
-    build_type = None # Check the summary of the class DockerizedLLMServingSystem for more details about the possible values.
+    parser = get_parser()
+    args = parser.parse_args()
+    docker_image_name = args.image_name
+    docker_image_tag = args.image_tag
+    build_type = args.build_type # Check the summary of the class DockerizedLLMServingSystem for more details about the possible values.
 
     # Download a gguf model
     hf = HuggingFaceInterface(authenticate=False)
