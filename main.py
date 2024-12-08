@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 This python module meet the following requirements :
 -> Check HuggingFace for gguf models and download them.
@@ -171,11 +172,11 @@ class DockerizedLLMServingSystem:
     It uses llama.cpp as the backend for the model. 
     The model will use as an OpenAPI compatible API endpoint the API implemented by the llama.cpp project.(Source: https://github.com/abetlen/llama-cpp-python?tab=readme-ov-file#openai-compatible-web-server).
 
-Requirements:
-- a docker deamon installed on the current machine (to build the image)
+    Requirements:
+    - a docker deamon installed on the current machine (to build the image)
 
-Keyword arguments:
-build_type -- parameter used by llama.cpp for when building the repository,possible values : [None, "openblas", (soon: "clblast", "cuda")]
+    Keyword arguments:
+    build_type -- parameter used by llama.cpp for when building the repository,possible values : [None, "openblas", (soon: "clblast", "cuda")]
 """
 
     def __init__(self, model_filename, docker_image_name, docker_image_tag,
@@ -264,22 +265,6 @@ CMD ["python3", "-m", "llama_cpp.server", "--model={self.model_filename}"]
 #----------------------
 
 if __name__ == "__main__":
-    """For testing, here is a scenario in which the user is asked to choose a GGUF model from the HuggingFace Hub, then it creates the docker image to serve the model chosen.
-    When the image is built succesfully, you can run a first container with the following command :
-    
-        docker run -dit -p 2600:2600 <docker_image_name>:<docker_image_tag>
-
-    And then your model is served into this container and is accessible through a OpenAI compatible API.
-
-    Example for testing :
-
-        1. Retrieve the id of the model with the following command:
-        curl http://localhost:2600/v1/models -H 'Content-Type: application/json'
-
-        2. Send a chat completion request to the served model using the following command:
-        curl http://localhost:2600/v1/chat/completions -H 'Content-Type: application/json' -d '{"model": "<model_id_found_with_the_previous_command>", "messages": [{"role": "user", "content": "Are you loaded ?"}], "temperature": 0.9, "max_tokens":25}'
-
-    """
 
     # Arguments
     docker_image_name = "imagetest"
