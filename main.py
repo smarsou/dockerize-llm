@@ -159,7 +159,7 @@ class DockerizedLLMServingSystem:
 """
 
     def __init__(self, model_filename, docker_image_name, docker_image_tag,
-                 preload_model=False, build_type=None, compile_backends=None, is_embedding=False, **kwargs):
+                 preload_model=False, build_type=None, compile_backends=None, is_embeddings=False, **kwargs):
         #self.model_path = model_path
         self.model_filename = model_filename
         # self.quantization_technique = quantization_technique
@@ -169,7 +169,7 @@ class DockerizedLLMServingSystem:
         self.build_type = build_type
         self.compile_backends = compile_backends
         self.kwargs = kwargs
-        self.is_embedding = is_embedding
+        self.is_embeddings = is_embeddings
 
     def get_backend(self):
         """Map the argument build_type to the llama.cpp corresponding argument.
@@ -183,9 +183,6 @@ class DockerizedLLMServingSystem:
     def format_dockerfile(self):
         """Format the dockerfile using the variables of the class.
         """
-        cmd = ["python3","-m","llama_cpp.server","--model", self.model_filename]
-        if self.is_embedding:
-            cmd.append("--embedding")
         return f"""
 # Use an official Ubuntu as a parent image
 FROM debian:bookworm
@@ -214,7 +211,7 @@ RUN git reset --hard f139d2ea611c5604395c95160d3c53f7c4eaf220
 RUN pip install -r requirements.txt --break-system-packages
 
 # Build llama.cpp with debug flag
-RUN make LLAMA_DEBUG=1 {self.get_backend()}
+RUN make LLAMA_DEBUG=1 {self.get_backend() if self.get_backend() else ""}
 
 # Install llama-cpp-python[server]
 RUN pip install 'llama-cpp-python[server]' --break-system-packages
@@ -229,9 +226,7 @@ ENV PORT=2600
 # Expose port 2600
 EXPOSE 2600
 
-# Start llama_cpp server
-CMD {cmd}
-"""
+""" + """CMD ["python3","-m","llama_cpp.server","--model={0}"{1}]""".format(self.model_filename, ",\"--embedding\"" if self.is_embeddings else "")
 
 
     def build_image(self):
@@ -256,7 +251,7 @@ if __name__ == "__main__":
     docker_image_name = args.image_name
     docker_image_tag = args.image_tag
     build_type = args.build_type # Check the summary of the class DockerizedLLMServingSystem for more details about the possible values.
-    is_embedding = args.embeddings is not None
+    is_embeddings = args.embeddings
 
     # Download a gguf model
     hf = HuggingFaceInterface(authenticate=False)
@@ -293,5 +288,5 @@ if __name__ == "__main__":
     hf.download_file(repo_id, filename, output_dir=".")
 
     # Build the image
-    system = DockerizedLLMServingSystem(filename, docker_image_name, docker_image_tag, build_type, is_embedding)
+    system = DockerizedLLMServingSystem(filename, docker_image_name, docker_image_tag, build_type=build_type, is_embeddings=is_embeddings)
     system.build_image()
