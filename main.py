@@ -22,7 +22,7 @@ API : Built-in llama.cpp API (python module "llama-cpp-python[server]")
 # Dependencies
 #----------------------
 
-import logging, re, requests, argparse
+import logging, re, requests, argparse, sys
 from huggingface_hub import login
 from huggingface_hub import get_hf_file_metadata, hf_hub_url, repo_info, hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
@@ -114,9 +114,9 @@ class HuggingFaceInterface():
         """
         
         url = f'https://huggingface.co/api/models?search={text}'
-        res = requests.get(url)
+        res = requests.get(url, timeout=10)
         for model in res.json():
-            if re.match("^\s*$",tag):
+            if not tag:
                 print("->",model['id'])
             else:
                 for t in model['tags']:
@@ -143,41 +143,6 @@ class HuggingFaceInterface():
         Download a full repo from a given HuggingFace repository.
         """
         snapshot_download(repo_id=repo_id,local_dir="output_dir",local_dir_use_symlinks=False, revision="main")
-
-    def search_model_and_download(self, output_dir="."):
-        """
-        Guide the user into the process flow of searching for a model in the HF Hub, and download it.
-        """
-        
-        while True:
-            name = input('Welcome to Hugging Face Model Search\nEnter the name or keyword of the model you are looking for: ')
-            tag = input('Enter a tag (optional; e.g., "gguf", "llama"): ')
-            print("Here are all repository found:")
-            self.search_repo_in_hub(name, tag)
-            retry = input("Do you want to perform another search? (y/_): ").lower()
-            if retry != "y":
-                break
-
-        while True:
-            repo_id = input('Enter the repository ID you want to explore: ')
-            if self.repo_exists(repo_id):
-                break
-            else:
-                print("FAILED : The repository you are trying to access does not exist or you do not have permission to view it. Please check the repository ID and try again. Note that you may need to log in to access the repository.")
-        print("Here are the GGUF files in this repository:")
-        self.list_gguf_files_in_repo(repo_id)
-
-        while True:
-            filename = input("Enter the filename of the model you want to download: ")
-            if self.file_exists(repo_id,filename):
-                break
-            else:
-                print("FAILED : The file you are trying to download does not exist or you do not have permission to acces the repository. Please check all the IDs and try again. Note that you may need to log in to access the repository.")
-
-        print("Initiating download process...")
-        self.download_file(repo_id, filename, output_dir=".")
-
-        return filename
 
 
 class DockerizedLLMServingSystem:
@@ -239,6 +204,8 @@ RUN git clone https://github.com/ggerganov/llama.cpp
 # Change working directory to /root/llama.cpp
 WORKDIR /root/llama.cpp
 
+RUN git reset --hard f139d2ea611c5604395c95160d3c53f7c4eaf220
+
 # Install Python requirements
 RUN pip install -r requirements.txt --break-system-packages
 
@@ -288,7 +255,37 @@ if __name__ == "__main__":
 
     # Download a gguf model
     hf = HuggingFaceInterface(authenticate=False)
-    filename = hf.search_model_and_download()
+
+    # User interaction to search and download a model
+    while True:
+        name = input('Welcome to Hugging Face Model Search\nEnter the name or keyword of the model you are looking for: ')
+        tag = input('Enter a tag (optional; e.g., "gguf", "llama"): ')
+        print("Here are all repository found:")
+        hf.search_repo_in_hub(name, tag)
+        retry = input("Do you want to perform another search? (y/n): ").lower()
+        if retry != "y":
+            break
+
+    while True:
+        repo_id = input('Enter the repository ID you want to explore: ')
+        if hf.repo_exists(repo_id):
+            break
+        else:
+            print("FAILED : The repository you are trying to access does not exist or you do not have permission to view it. Please check the repository ID and try again. Note that you may need to log in to access the repository.")
+    
+    print("Here are the GGUF files in this repository:")
+    hf.list_gguf_files_in_repo(repo_id)
+
+    while True:
+        filename = input("Enter the filename of the model you want to download: ")
+        if hf.file_exists(repo_id,filename):
+            break
+        else:
+            print("FAILED : The file you are trying to download does not exist or you do not have permission to acces the repository. Please check all the IDs and try again. Note that you may need to log in to access the repository.")
+            sys.exit(1)
+
+    print("Initiating download process...")
+    hf.download_file(repo_id, filename, output_dir=".")
 
     # Build the image
     system = DockerizedLLMServingSystem(filename, docker_image_name, docker_image_tag, build_type)
