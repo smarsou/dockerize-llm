@@ -212,11 +212,11 @@ RUN pip install -r requirements.txt --break-system-packages
 # Build llama.cpp with debug flag
 RUN make LLAMA_DEBUG=1 {self.get_backend()}
 
-# Copy the GGUF model from the host into the container
-COPY {self.model_filename} /root/llama.cpp/
-
 # Install llama-cpp-python[server]
 RUN pip install 'llama-cpp-python[server]' --break-system-packages
+
+# Copy the GGUF model from the host into the container
+COPY {self.model_filename} /root/llama.cpp/
 
 # Set environment variables
 ENV HOST=0.0.0.0
