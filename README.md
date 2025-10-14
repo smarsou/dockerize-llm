@@ -50,17 +50,19 @@ The script accepts the following arguments:
 2. Install required Python packages:
    ```bash
    pip install -r requirements.txt
-3. python3 dockerize_llm.py <image_name> <image_tag> <build_type>
-4. Follow the interactive steps to:
+3. Execute the script
+   ```bash
+   python3 dockerize_llm.py <image_name> <image_tag> <build_type>
+5. Follow the interactive steps to:
    - Search for a model.
    - Select and download the model file.
-5. The Docker image will be built automatically.
+6. The Docker image will be built automatically.
 
 ### Run the built image
 
 Run a container with the following command :
 
-    docker run -dit -p 2600:2600 <docker_image_name>:<docker_image_tag>
+    docker run -dit -p 2600:2600 <image_name>:<image_tag>
 
 Then your model is served into this container and is accessible through a OpenAI compatible API.
 
