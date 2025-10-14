@@ -226,7 +226,7 @@ ENV PORT=2600
 # Expose port 2600
 EXPOSE 2600
 
-""" + """CMD ["python3","-m","llama_cpp.server","--model={0}"{1}]""".format(self.model_filename, ",\"--embedding\"" if self.is_embeddings else "")
+""" + """CMD ["python3","-m","llama_cpp.server","--model={0}","--embedding={1}"]""".format(self.model_filename, "true" if self.is_embeddings else "false")
 
 
     def build_image(self):
