@@ -116,22 +116,26 @@ class HuggingFaceInterface():
         
         url = f'https://huggingface.co/api/models?search={text}'
         res = requests.get(url, timeout=10)
+        repos = []
         for model in res.json():
             if not tag:
-                print("->",model['id'])
+                repos.append(model['id'])
             else:
                 for t in model['tags']:
                     if t == tag:
-                        print("->",model['id'])
+                        repos.append(model['id'])
                         break
+        return repos
 
     def list_gguf_files_in_repo(self,repo_id):
         """"
         List all the gguf files in a given HuggingFace repository.
         """
+        files = []
         for file in repo_info(repo_id).siblings:
             if re.match("^.*.gguf$",file.rfilename):
-                print("->",file.rfilename)
+                files.append(file.rfilename)
+        return files
 
     def download_file(self,repo_id, filename, output_dir="."):
         """
@@ -226,7 +230,8 @@ ENV PORT=2600
 # Expose port 2600
 EXPOSE 2600
 
-""" + """CMD ["python3","-m","llama_cpp.server","--model={0}","--embedding={1}"]""".format(self.model_filename, "true" if self.is_embeddings else "false")
+CMD ["python3","-m","llama_cpp.server","--model={self.model_filename}","--embedding={"true" if self.is_embeddings else "false"}"]
+"""
 
 
     def build_image(self):
@@ -261,28 +266,34 @@ if __name__ == "__main__":
         name = input('Welcome to Hugging Face Model Search\nEnter the name or keyword of the model you are looking for: ')
         tag = input('Enter a tag (optional; e.g., "gguf", "llama"): ')
         print("Here are all repository found:")
-        hf.search_repo_in_hub(name, tag)
+        repos = hf.search_repo_in_hub(name, tag)
+        for i, repo in enumerate(repos):
+            print(f"{i}. {repo}")
         retry = input("Do you want to perform another search? (y/n): ").lower()
         if retry != "y":
             break
 
     while True:
-        repo_id = input('Enter the repository ID you want to explore: ')
-        if hf.repo_exists(repo_id):
-            break
+        idx = input('Enter the index of the repository you want to explore: ')
+        if idx.isdigit() and 0 <= int(idx) < len(repos):
+            repo_id = repos[int(idx)]
+            if hf.repo_exists(repo_id):
+                break
         else:
             print("FAILED : The repository you are trying to access does not exist or you do not have permission to view it. Please check the repository ID and try again. Note that you may need to log in to access the repository.")
     
     print("Here are the GGUF files in this repository:")
-    hf.list_gguf_files_in_repo(repo_id)
+    files = hf.list_gguf_files_in_repo(repo_id)
+    for i, file in enumerate(files):
+        print(f"{i}. {file}")
 
     while True:
-        filename = input("Enter the filename of the model you want to download: ")
-        if hf.file_exists(repo_id,filename):
+        fileIdx = input("Enter the filename's index of the model you want to download: ")
+        if hf.file_exists(repo_id, files[int(fileIdx)]):
+            filename = files[int(fileIdx)]
             break
         else:
             print("FAILED : The file you are trying to download does not exist or you do not have permission to acces the repository. Please check all the IDs and try again. Note that you may need to log in to access the repository.")
-            sys.exit(1)
 
     print("Initiating download process...")
     hf.download_file(repo_id, filename, output_dir=".")
