@@ -1,6 +1,6 @@
 # DockerizeLLM
 
-DockerizeLLM is a Python script designed to make serving large language models (LLMs) simple. It automates the process of finding, downloading, and serving models from the Hugging Face Hub using `llama.cpp` as the backend. The resulting system runs as a Docker container with an OpenAI-compatible API.
+DockerizeLLM is a Python script designed to make serving large language models (LLMs) simple (only gguf format). It automates the process of finding, downloading, and serving models from the Hugging Face Hub using `llama.cpp` as the backend. The resulting system runs as a Docker container with an OpenAI-compatible API (deprecated for now).
 
 ## Features
 

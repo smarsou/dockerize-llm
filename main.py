@@ -272,7 +272,7 @@ if __name__ == "__main__":
         retry = input("Do you want to perform another search? (y/n): ").lower()
         if retry != "y":
             break
-
+        
     while True:
         idx = input('Enter the index of the repository you want to explore: ')
         if idx.isdigit() and 0 <= int(idx) < len(repos):
@@ -281,7 +281,7 @@ if __name__ == "__main__":
                 break
         else:
             print("FAILED : The repository you are trying to access does not exist or you do not have permission to view it. Please check the repository ID and try again. Note that you may need to log in to access the repository.")
-    
+
     print("Here are the GGUF files in this repository:")
     files = hf.list_gguf_files_in_repo(repo_id)
     for i, file in enumerate(files):
